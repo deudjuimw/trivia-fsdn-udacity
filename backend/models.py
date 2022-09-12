@@ -1,10 +1,19 @@
-import os
+from dotenv import load_dotenv
 from sqlalchemy import Column, String, Integer, create_engine
 from flask_sqlalchemy import SQLAlchemy
 import json
+import os
 
-database_name = 'trivia'
-database_path = 'postgresql://{}/{}'.format('localhost:5432', database_name)
+load_dotenv('./.env')
+database_name = os.getenv('PROD_DATABASE')  # 'trivia'
+database_user = os.getenv('PROD_DB_USER')
+database_pwd = os.getenv('PROD_DB_PWD')
+database_host = os.getenv('PROD_DB_HOST')
+database_port = os.getenv('PROD_DB_PORT')
+# database_path = 'postgresql://{}/{}'.format('localhost:5432', database_name)
+database_path = "postgresql://{}:{}@{}:{}/{}".format(    
+    database_user, database_pwd, database_host, database_port, database_name)
+    # "postgres", "postgres", "localhost:5432", database_name)
 
 db = SQLAlchemy()
 
@@ -12,17 +21,20 @@ db = SQLAlchemy()
 setup_db(app)
     binds a flask application and a SQLAlchemy service
 """
+
+
 def setup_db(app, database_path=database_path):
     app.config["SQLALCHEMY_DATABASE_URI"] = database_path
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    db.app = app
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False    
+    db.app = app    
     db.init_app(app)
     db.create_all()
 
 """
 Question
-
 """
+
+
 class Question(db.Model):
     __tablename__ = 'questions'
 
@@ -60,7 +72,6 @@ class Question(db.Model):
 
 """
 Category
-
 """
 class Category(db.Model):
     __tablename__ = 'categories'

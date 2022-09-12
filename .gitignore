@@ -1,6 +1,10 @@
 .vscode
 __pycache__
-venv
+venv/
+./backend/venv
+./frontend/node_modules
+./backend/.env
+./backend/README.bak.md
 
 # OS generated files #
 ######################
