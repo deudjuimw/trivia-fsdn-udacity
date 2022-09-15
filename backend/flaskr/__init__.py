@@ -26,12 +26,21 @@ def paginate_questions(req, questions):
     return displayed_questions
 
 
+def format_categories(categories):
+    """ format categories """
+    formatted_categories = {}
+    for category in categories:
+        formatted_categories[category.id] = category.type    
+    return formatted_categories
+
+
 def create_app():
     """ create and configure the app """
     app = Flask(__name__)
     setup_db(app)
-
     CORS(app)
+    # CORS(app, supports_credentials=True)
+
 
     # """
     # @TODO: Set up CORS. Allow '*' for origins.
@@ -43,15 +52,18 @@ def create_app():
 
     @app.after_request
     def after_request(response):
-        response.headers.add(
-            "Access-Control-Allow-Origin", "*"
-        )
+        
         response.headers.add(
             "Access-Control-Allow-Headers", "Content-Type,Authorization,true"
         )
         response.headers.add(
-            "Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS"
+            "Access-Control-Allow-Methods", "GET,POST,DELETE, OPTIONS"
         )
+
+        response.headers.add(
+            "Access-Control-Allow-Credentials", "true"
+        )
+
         return response
 
     # """
@@ -59,18 +71,20 @@ def create_app():
     # Create an endpoint to handle GET requests
     # for all available categories.
     # """
+        
     @app.route('/categories', methods=['GET'])
     def get_categories():
 
-        categories = Category.query.order_by(Category.id).all()
-        # displayed_books = paginate_books(request, categories)
+        categories = Category.query.order_by(Category.id).all()                
 
         if len(categories) == 0:
             abort(404)
+        
+        displayed_categories = format_categories(categories)        
 
         return jsonify({
             # 'success':True,
-            'categories': [category.format() for category in categories],
+            'categories': displayed_categories
             # 'total_categories': len(categories)
         })
 
@@ -92,11 +106,12 @@ def create_app():
     @app.route('/questions', methods=['GET'])
     def get_questions():
 
-        questions_category = request.args.get('category', 'All', type=str)
-
-        if questions_category == 'All':
+        questions_category = request.args.get('category')
+        
+        if questions_category is None:
             questions = Question.query.order_by(Question.id).all()
-        else:
+            questions_category = 'All'
+        else:        
             current_category = Category.query.filter(
                 Category.type == questions_category).one_or_none()
             if current_category is None:
@@ -109,7 +124,7 @@ def create_app():
                     Question.category == current_category.id).all()
             
         displayed_questions = paginate_questions(request, questions)
-        categories = Category.query.order_by(Category.id).all()
+        categories = format_categories(Category.query.order_by(Category.id).all())
 
         if len(displayed_questions) == 0:
             abort(404, 'No questions on this page')
@@ -118,7 +133,7 @@ def create_app():
             'success': True,
             'questions':  displayed_questions,
             'total_questions': len(questions),
-            'categories': [category.format() for category in categories],
+            'categories': categories,
             'current_category': questions_category
         })
 
@@ -181,15 +196,15 @@ def create_app():
 
             question.insert()
 
-            questions = Question.query.order_by(Question.id).all()
+            # questions = Question.query.order_by(Question.id).all()
             # formatted_books = [book.format() for book in books]
-            displayed_questions = paginate_questions(request, questions)
+            # displayed_questions = paginate_questions(request, questions)
 
             return jsonify({
                 'success': True,
                 'created': question.id,
-                'questions': displayed_questions,
-                'total_questions': len(questions)
+                #'questions': displayed_questions,
+                #'total_questions': len(questions)
             })
 
         abort(422)
@@ -208,21 +223,33 @@ def create_app():
     def search_question():
 
         body = request.get_json()
-        search = body.get('search', None)
-        if search:            
-            #raise Exception(search)
-            selection = Question.query.order_by(Question.id).filter(
-                Question.question.ilike("%{}%".format(search))).all()
-                #Question.question.like(search)).all()
+        questions_category = request.args.get('category')
+        current_category = Category.query.filter(
+                Category.type == questions_category).one_or_none()
+
+        search = body.get('searchTerm', None)
+        if search:
+            if current_category:
+                selection = Question.query.order_by(Question.id).filter(
+                    Question.question.ilike("%{}%".format(search))).filter_by(
+                        category=current_category.id).all()                
+            else:
+                selection = Question.query.order_by(Question.id).filter(
+                    Question.question.ilike("%{}%".format(search))).all()
+                
+                # Question.question.like(search)).all()
                 # Question.question.ilike(f"{search}")).order_by(
                 # Question.id).all()            
-            displayed_questions = paginate_questions(request, selection)
+            displayed_questions = paginate_questions(request, selection)      
 
-            return jsonify({
+            response = jsonify({
                 'success': True,
                 'questions': displayed_questions,
-                'total_questions': len(displayed_questions)
+                'total_questions': len(displayed_questions),
+                'currentCategory': 'All 'if current_category is None else current_category.type
             })
+            # response.headers.add('Access-Control-Allow-Credentials', True)
+            return response
         abort(422)
 
     @app.route('/fetch_category', methods=['POST'])
@@ -262,7 +289,7 @@ def create_app():
             Question.id).filter_by(category=category_id).all()
 
         displayed_questions = paginate_questions(request, questions)
-        categories = Category.query.order_by(Category.id).all()
+        categories = format_categories(Category.query.order_by(Category.id).all())
 
         if len(questions) == 0:
             abort(404, 'No questions in this category')
@@ -271,8 +298,8 @@ def create_app():
             'success': True,
             'questions':  displayed_questions,
             'total_questions': len(questions),
-            'categories': [category.format() for category in categories],
-            'current_category': current_category.format()
+            'categories': categories,
+            'current_category': current_category.type
         })
 
     # """
@@ -287,25 +314,24 @@ def create_app():
     # and shown whether they were correct or not.
     # """
     @app.route('/quizzes', methods=['POST'])
-    def play():
+    def quizzes():
 
-        body = request.get_json()
-
-        previous_questions = body.get('previous_questions', None)
-        quiz_category = body.get('quiz_category', None)
-
+        body = request.get_json()        
+        previous_questions = body.get('previous_questions')
+        quiz_category = body.get('quiz_category')        
         next_question = Question.query.order_by(Question.id).filter_by(
             category=quiz_category).filter(
             Question.id.not_in(previous_questions)).order_by(
                 func.random()).first()
 
-        if next_question:
-            return jsonify({
-                'success': True,
-                'question': next_question.format(),
-            })
+        response = jsonify({
+            'success': True,
+            'question': next_question.format() if next_question else None,
+            'message': "You can still play" if next_question else "No More Questions in this category"
+        })
+        return response
         
-        abort(404, 'No More Question in this category')
+        #abort(404, 'No More Question in this category')
 
     # """
     # @TODO:

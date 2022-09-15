@@ -18,11 +18,14 @@ class QuestionView extends Component {
 
   componentDidMount() {
     this.getQuestions();
+
+    //alert(this.state.currentCategory);
+    //alert(Object.values(this.state.currentCategory));
   }
 
   getQuestions = () => {
     $.ajax({
-      url: `/questions?page=${this.state.page}`, //TODO: update request URL
+      url: `http://127.0.0.1:5000/questions?page=${this.state.page}`, //TODO: update request URL
       type: 'GET',
       success: (result) => {
         this.setState({
@@ -31,6 +34,7 @@ class QuestionView extends Component {
           categories: result.categories,
           currentCategory: result.current_category,
         });
+        //console.log(this.state.categories)
         return;
       },
       error: (error) => {
@@ -65,7 +69,7 @@ class QuestionView extends Component {
 
   getByCategory = (id) => {
     $.ajax({
-      url: `/categories/${id}/questions`, //TODO: update request URL
+      url: `http://127.0.0.1:5000/categories/${id}/questions`, //TODO: update request URL
       type: 'GET',
       success: (result) => {
         this.setState({
@@ -84,7 +88,7 @@ class QuestionView extends Component {
 
   submitSearch = (searchTerm) => {
     $.ajax({
-      url: `/questions`, //TODO: update request URL
+      url: `http://127.0.0.1:5000/search_questions`, //TODO: update request URL
       type: 'POST',
       dataType: 'json',
       contentType: 'application/json',
@@ -112,7 +116,7 @@ class QuestionView extends Component {
     if (action === 'DELETE') {
       if (window.confirm('are you sure you want to delete the question?')) {
         $.ajax({
-          url: `/questions/${id}`, //TODO: update request URL
+          url: `http://127.0.0.1:5000/questions/${id}`, //TODO: update request URL
           type: 'DELETE',
           success: (result) => {
             this.getQuestions();
@@ -127,6 +131,7 @@ class QuestionView extends Component {
   };
 
   render() {
+    //console.log(this.state.categories)
     return (
       <div className='question-view'>
         <div className='categories-list'>
@@ -148,8 +153,8 @@ class QuestionView extends Component {
                 {this.state.categories[id]}
                 <img
                   className='category'
-                  alt={`${this.state.categories[id].toLowerCase()}`}
-                  src={`${this.state.categories[id].toLowerCase()}.svg`}
+                  alt={`${this.state.categories[id].toString().toLowerCase()}`}
+                  src={`${this.state.categories[id].toString().toLowerCase()}.svg`}
                 />
               </li>
             ))}
